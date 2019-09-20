@@ -2,21 +2,16 @@
 
 namespace Drupal\views_creator\Plugin\Block;
 
-use Drupal\Component\Plugin\Definition\ContextAwarePluginDefinitionInterface;
-use Drupal\Component\Plugin\Definition\ContextAwarePluginDefinitionTrait;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityNullStorage;
-use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Form\SubformState;
 use Drupal\Core\Form\SubformStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\ContextAwarePluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 
 /**
  * Provides a 'ViewsCreatorBlock' block.
@@ -106,6 +101,11 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
     list($entity_type_id, $field_name) = explode(':', $views_options['relationship']);
     $query = \Drupal::entityQuery($entity_type_id);
     $query->condition($field_name, $entity->id());
+    $bundles = array_filter($views_options['bundles']);
+    if (!empty($bundles)) {
+      $entity_type = \Drupal::entityTypeManager()->getDefinition($entity_type_id);
+      $query->condition($entity_type->getKey('bundle'), $bundles);
+    }
 
     $query->range(0, $views_options['number']);
     $results = $query->execute();
@@ -116,8 +116,9 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
       }
     }
     else {
+      list(,$view_mode) = explode('.', $views_options['display']);
       $view_builder = \Drupal::entityTypeManager()->getViewBuilder($entity_type_id);
-      $build = $view_builder->viewMultiple($display_entities);
+      $build = $view_builder->viewMultiple($display_entities, $view_mode);
     }
 
 
@@ -156,7 +157,6 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
     if ($form_state instanceof SubformStateInterface) {
       $form_state = $form_state->getCompleteFormState();
       $form_defaults = $this->getFormDefaults($form_state);
-      $input = $form_state->getUserInput();
       if (!empty($form_defaults['context_mapping']['entity'])) {
         $context_name = $form_defaults['context_mapping']['entity'];
         $contexts = $form_state->getTemporaryValue('gathered_contexts') ?: [];
@@ -170,10 +170,10 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
             if ($entity_type->getStorageClass() === ContentEntityNullStorage::class) {
               continue;
             }
-            /** @var  \Drupal\Core\Field\FieldDefinitionInterface[] $field_defintions */
-            foreach ($field_info as $field_name => $field_defintions) {
-              $bundles = array_keys($field_defintions);
-              $options["$entity_type_id:$field_name"] = $entity_type->getPluralLabel() . " via " . $field_defintions[$bundles[0]]->getLabel();
+            /** @var  \Drupal\Core\Field\FieldDefinitionInterface[] $field_definitions */
+            foreach ($field_info as $field_name => $field_definitions) {
+              $bundles = array_keys($field_definitions);
+              $options["$entity_type_id:$field_name"] = $entity_type->getPluralLabel() . " via " . $field_definitions[$bundles[0]]->getLabel();
             }
           }
           $form['views_options']['relationship'] = [
@@ -188,8 +188,6 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
             $selected_field_definitions = $reference_fields_map[$field_entity_type_id][$field_name];
             if (count($selected_field_definitions) > 1) {
               $entity_type = $this->entityTypeManager->getDefinition($field_entity_type_id);
-              /** @var \Drupal\Core\Entity\EntityTypeInterface $bundle_entity_type */
-              $bundle_entity_type = $this->entityTypeManager->getDefinition($entity_type->getBundleEntityType());
               /** @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface $entity_type_bundle_info */
               $entity_type_bundle_info = \Drupal::service('entity_type.bundle.info');
               $bundle_info = $entity_type_bundle_info->getBundleInfo($field_entity_type_id);
@@ -210,14 +208,15 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
                 foreach ($view_modes as $view_mode) {
                   $view_mode_options[$view_mode['id']] = $view_mode['label'];
                 }
+                $form['views_options']['display'] = [
+                  '#title' => $this->t('Display as'),
+                  '#type' => 'select',
+                  '#options' => $view_mode_options,
+                  '#required' => TRUE,
+                  '#default_value' => $form_defaults['views_options']['display'],
+                ];
               }
-              $form['views_options']['display'] = [
-                '#title' => $this->t('Display as'),
-                '#type' => 'select',
-                '#options' => $view_mode_options,
-                '#required' => TRUE,
-                '#default_value' => $form_defaults['views_options']['display'],
-              ];
+
             }
             $form['views_options']['number'] = [
               '#title' => $this->t('How many to display'),
