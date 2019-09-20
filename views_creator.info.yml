@@ -1,0 +1,5 @@
+name: 'views_creator'
+type: module
+description: 'Create views from a block'
+core: 8.x
+package: 'Custom'

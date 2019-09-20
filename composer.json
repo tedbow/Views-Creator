@@ -1,0 +1,13 @@
+{
+    "name": "views_creator",
+    "type": "drupal-module",
+    "description": "Create views from a block",
+    "keywords": [
+    ],
+    "homepage": "https://www.drupal.org/project/views_creator",
+    "minimum-stability": "dev",
+    "support": {
+        "issues": "https://www.drupal.org/project/issues/views_creator",
+        "source": "http://cgit.drupalcode.org/views_creator",
+    },
+}

@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * @file
+ * Contains views_creator.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function views_creator_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the views_creator module.
+    case 'help.page.views_creator':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Create views from a block') . '</p>';
+      return $output;
+
+    default:
+  }
+}
