@@ -157,8 +157,8 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
       $form_state = $form_state->getCompleteFormState();
       $form_defaults = $this->getFormDefaults($form_state);
       $input = $form_state->getUserInput();
-      if (!empty($input['settings']['context_mapping']['entity'])) {
-        $context_name = $input['settings']['context_mapping']['entity'];
+      if (!empty($form_defaults['context_mapping']['entity'])) {
+        $context_name = $form_defaults['context_mapping']['entity'];
         $contexts = $form_state->getTemporaryValue('gathered_contexts') ?: [];
         /** @var \Drupal\Core\Plugin\Context\EntityContext $context */
         $context = $contexts[$context_name];
@@ -180,11 +180,11 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
             '#type' => 'select',
             '#title' => 'fields',
             '#options' => $options,
-            '#default_value' => $this->configuration['views_options']['relationship'],
+            '#default_value' => $form_defaults['views_options']['relationship'],
           ];
           $this->addAjaxCallBack($form['views_options']['relationship']);
-          if (!empty($input["settings"]["views_options"]['relationship'])) {
-            list($field_entity_type_id, $field_name) = explode(':', $input["settings"]["views_options"]['relationship']);
+          if (!empty($form_defaults['views_options']['relationship'])) {
+            list($field_entity_type_id, $field_name) = explode(':', $form_defaults['views_options']['relationship']);
             $selected_field_definitions = $reference_fields_map[$field_entity_type_id][$field_name];
             if (count($selected_field_definitions) > 1) {
               $entity_type = $this->entityTypeManager->getDefinition($field_entity_type_id);
@@ -193,13 +193,14 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
               /** @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface $entity_type_bundle_info */
               $entity_type_bundle_info = \Drupal::service('entity_type.bundle.info');
               $bundle_info = $entity_type_bundle_info->getBundleInfo($field_entity_type_id);
-              $bundle_options = array_map(function ($bundle_name) use ($bundle_info) {
-                return $bundle_info[$bundle_name]['label'];
-              }, array_keys($selected_field_definitions));
+              foreach (array_keys($selected_field_definitions) as $bundle_name) {
+                $bundle_options[$bundle_name] = $bundle_info[$bundle_name]['label'];
+              }
               $form['views_options']['bundles'] = [
                 '#title' => $entity_type->getBundleLabel(),
                 '#type' => 'checkboxes',
                 '#options' => $bundle_options,
+                '#default_value' => $form_defaults['views_options']['bundles'],
               ];
               /** @var \Drupal\Core\Entity\EntityDisplayRepositoryInterface $ed */
               $ed = \Drupal::service('entity_display.repository');
@@ -215,6 +216,7 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
                 '#type' => 'select',
                 '#options' => $view_mode_options,
                 '#required' => TRUE,
+                '#default_value' => $form_defaults['views_options']['display'],
               ];
             }
             $form['views_options']['number'] = [
@@ -222,7 +224,7 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
               '#type' => 'number',
               '#required' => TRUE,
               '#min' => 1,
-              '#default_value' => 5,
+              '#default_value' => $form_defaults['views_options']['number'],
             ];
           }
 
@@ -298,6 +300,20 @@ class ViewsCreatorBlock extends BlockBase implements ContainerFactoryPluginInter
   private function getFormDefaults(FormStateInterface $form_state) {
     $input = $form_state->getUserInput();
     $config = $this->getConfiguration();
+    $defaults = [];
+    if (isset($input['settings']['views_options'])) {
+      $defaults['views_options'] = $input['settings']['views_options'];
+    }
+    else {
+      $defaults['views_options'] = $config['views_options'];
+    }
+    if (isset($input['settings']['context_mapping'])) {
+      $defaults['context_mapping']  = $input['settings']['context_mapping'];
+    }
+    else {
+      $defaults['context_mapping'] = $config['context_mapping'];
+    }
+    return $defaults;
   }
 
 
